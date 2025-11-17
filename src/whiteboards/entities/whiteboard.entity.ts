@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { WhiteboardCollaborator } from '../../whiteboard-collaborators/entities/whiteboard-collaborator.entity';
+import { WhiteboardSnapshot } from '../../whiteboard-snapshots/entities/whiteboard-snapshot.entity';
 
 @Entity({ name: 'whiteboards' })
 export class Whiteboard {
@@ -40,5 +41,8 @@ export class Whiteboard {
     (collaborator) => collaborator.whiteboard,
   )
   collaborators: WhiteboardCollaborator[];
+
+  @OneToMany(() => WhiteboardSnapshot, (snapshot) => snapshot.whiteboard)
+  snapshots: WhiteboardSnapshot[];
 }
 
