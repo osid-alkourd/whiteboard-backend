@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Whiteboard } from '../../whiteboards/entities/whiteboard.entity';
+import { WhiteboardCollaborator } from '../../whiteboard-collaborators/entities/whiteboard-collaborator.entity';
 
 @Entity({ name: 'users' })
 export class User {
@@ -33,5 +34,8 @@ export class User {
 
   @OneToMany(() => Whiteboard, (whiteboard) => whiteboard.owner)
   whiteboards: Whiteboard[];
+
+  @OneToMany(() => WhiteboardCollaborator, (collab) => collab.user)
+  collaborations: WhiteboardCollaborator[];
 }
 

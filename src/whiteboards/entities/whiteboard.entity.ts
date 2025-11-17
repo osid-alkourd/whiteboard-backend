@@ -4,10 +4,12 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { WhiteboardCollaborator } from '../../whiteboard-collaborators/entities/whiteboard-collaborator.entity';
 
 @Entity({ name: 'whiteboards' })
 export class Whiteboard {
@@ -32,5 +34,11 @@ export class Whiteboard {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
   updatedAt: Date;
+
+  @OneToMany(
+    () => WhiteboardCollaborator,
+    (collaborator) => collaborator.whiteboard,
+  )
+  collaborators: WhiteboardCollaborator[];
 }
 

@@ -2,6 +2,7 @@ import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DataSourceOptions } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { Whiteboard } from '../whiteboards/entities/whiteboard.entity';
+import { WhiteboardCollaborator } from '../whiteboard-collaborators/entities/whiteboard-collaborator.entity';
 import 'dotenv/config';
 
 const parsePort = (value: string | undefined, fallback: number): number => {
@@ -16,7 +17,7 @@ export const typeOrmConfig = (): TypeOrmModuleOptions & DataSourceOptions => ({
   username: process.env.DB_USERNAME ?? 'postgres',
   password: process.env.DB_PASSWORD ?? 'admin',
   database: process.env.DB_NAME ?? 'whiteboard_db',
-  entities: [User, Whiteboard],
+  entities: [User, Whiteboard, WhiteboardCollaborator],
   migrations: ['dist/database/migrations/*.js'],
   synchronize: true,
   logging: process.env.DB_LOGGING === 'true',
