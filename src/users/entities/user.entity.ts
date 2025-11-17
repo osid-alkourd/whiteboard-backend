@@ -2,9 +2,11 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Whiteboard } from '../../whiteboards/entities/whiteboard.entity';
 
 @Entity({ name: 'users' })
 export class User {
@@ -28,5 +30,8 @@ export class User {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
   updatedAt: Date;
+
+  @OneToMany(() => Whiteboard, (whiteboard) => whiteboard.owner)
+  whiteboards: Whiteboard[];
 }
 

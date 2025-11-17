@@ -26,4 +26,3 @@ export class CreateUsersTable1731795600000 implements MigrationInterface {
     await queryRunner.query(`DROP EXTENSION IF EXISTS "uuid-ossp"`);
   }
 }
-
