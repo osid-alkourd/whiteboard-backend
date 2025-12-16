@@ -9,6 +9,7 @@ import {
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -49,6 +50,51 @@ export class AuthController {
 
     return res.status(HttpStatus.CREATED).json({
       message: 'User registered successfully',
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        isVerified: user.isVerified,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    });
+  }
+
+  /**
+   * Login user
+   * Authenticates user credentials and sets an HttpOnly cookie with JWT token
+   * @param loginDto - Login credentials (email, password)
+   * @param res - Express response object
+   * @returns Authenticated user information (without sensitive data)
+   */
+  @Post('login')
+  async login(
+    @Body(ValidationPipe) loginDto: LoginDto,
+    @Res() res: Response,
+  ) {
+    // Authenticate user credentials
+    const user = await this.authService.login(
+      loginDto.email,
+      loginDto.password,
+    );
+
+    // Generate JWT token
+    const token = this.authService.generateToken(user);
+
+    // Set HttpOnly cookie (not accessible by JavaScript for security)
+    const cookieOptions = {
+      httpOnly: true, // Prevents JavaScript access
+      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+      sameSite: 'strict' as const, // CSRF protection
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/', // Cookie available for all paths
+    };
+
+    res.cookie('token', token, cookieOptions);
+
+    return res.status(HttpStatus.OK).json({
+      message: 'Login successful',
       user: {
         id: user.id,
         email: user.email,
