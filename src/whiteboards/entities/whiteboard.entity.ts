@@ -20,6 +20,9 @@ export class Whiteboard {
   @Column({ type: 'varchar', length: 255 })
   title: string;
 
+  @Column({ type: 'text', nullable: true })
+  description?: string;
+
   @ManyToOne(() => User, (user) => user.whiteboards, {
     nullable: false,
     onDelete: 'CASCADE',

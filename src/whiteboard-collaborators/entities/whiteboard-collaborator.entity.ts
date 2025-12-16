@@ -4,18 +4,18 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Whiteboard } from '../../whiteboards/entities/whiteboard.entity';
 import { User } from '../../users/entities/user.entity';
 
-export type CollaboratorRole = 'viewer' | 'editor';
+export type CollaboratorRole = 'editor' | 'owner';
 
 @Entity({ name: 'whiteboard_collaborators' })
 export class WhiteboardCollaborator {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryColumn({ name: 'whiteboard_id', type: 'uuid' })
+  whiteboardId: string;
 
   @ManyToOne(() => Whiteboard, (whiteboard) => whiteboard.collaborators, {
     nullable: false,
@@ -23,6 +23,9 @@ export class WhiteboardCollaborator {
   })
   @JoinColumn({ name: 'whiteboard_id' })
   whiteboard: Whiteboard;
+
+  @PrimaryColumn({ name: 'user_id', type: 'uuid' })
+  userId: string;
 
   @ManyToOne(() => User, (user) => user.collaborations, {
     nullable: false,
@@ -33,8 +36,8 @@ export class WhiteboardCollaborator {
 
   @Column({
     type: 'enum',
-    enum: ['viewer', 'editor'],
-    default: 'viewer',
+    enum: ['editor', 'owner'],
+    default: 'editor',
   })
   role: CollaboratorRole;
 
