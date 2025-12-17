@@ -6,6 +6,7 @@ import { typeOrmConfig } from './config/typeorm.config';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { WhiteboardsModule } from './whiteboards/whiteboards.module';
+import { WhiteboardSnapshotsModule } from './whiteboard-snapshots/whiteboard-snapshots.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { WhiteboardsModule } from './whiteboards/whiteboards.module';
     AuthModule,
     UsersModule,
     WhiteboardsModule,
+    WhiteboardSnapshotsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
