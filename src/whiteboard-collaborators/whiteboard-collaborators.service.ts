@@ -1,4 +1,4 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WhiteboardCollaborator } from './entities/whiteboard-collaborator.entity';
@@ -122,6 +122,32 @@ export class WhiteboardCollaboratorsService {
     });
 
     return await this.collaboratorRepository.save(collaborator);
+  }
+
+  /**
+   * Remove a collaborator from a whiteboard
+   * @param whiteboardId - Whiteboard ID
+   * @param userId - User ID of the collaborator to remove
+   * @throws NotFoundException if collaborator not found
+   */
+  async removeCollaborator(
+    whiteboardId: string,
+    userId: string,
+  ): Promise<void> {
+    const collaborator = await this.collaboratorRepository.findOne({
+      where: {
+        whiteboardId,
+        userId,
+      },
+    });
+
+    if (!collaborator) {
+      throw new NotFoundException(
+        'Collaborator not found on this whiteboard',
+      );
+    }
+
+    await this.collaboratorRepository.remove(collaborator);
   }
 }
 

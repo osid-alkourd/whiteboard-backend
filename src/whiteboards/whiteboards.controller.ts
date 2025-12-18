@@ -20,6 +20,7 @@ import type { Response } from 'express';
 import { WhiteboardsService } from './whiteboards.service';
 import { CreateWhiteboardDto } from './dto/create-whiteboard.dto';
 import { AddCollaboratorDto } from './dto/add-collaborator.dto';
+import { RemoveCollaboratorDto } from './dto/remove-collaborator.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { User } from '../users/entities/user.entity';
@@ -191,6 +192,79 @@ export class WhiteboardsController {
         success: false,
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: 'Failed to add collaborator',
+        error: error.message,
+        data: null,
+      };
+    }
+  }
+
+  /**
+   * Remove a collaborator from a whiteboard (owner only)
+   * Requires authentication and ownership
+   * @param id - Whiteboard ID
+   * @param removeCollaboratorDto - Email of the collaborator to remove
+   * @param user - Current authenticated user (must be the owner)
+   * @param res - Express response object for setting status codes
+   * @returns Success message
+   */
+  @Delete(':id/collaborators')
+  @HttpCode(HttpStatus.OK)
+  async removeCollaborator(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(ValidationPipe) removeCollaboratorDto: RemoveCollaboratorDto,
+    @CurrentUser() user: User,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    try {
+      await this.whiteboardsService.removeCollaborator(
+        id,
+        removeCollaboratorDto.email,
+        user,
+      );
+
+      return {
+        success: true,
+        statusCode: HttpStatus.OK,
+        message: 'Collaborator removed successfully',
+        data: null,
+      };
+    } catch (error) {
+      // Handle different error types
+      if (error instanceof NotFoundException) {
+        res.status(HttpStatus.NOT_FOUND);
+        return {
+          success: false,
+          statusCode: HttpStatus.NOT_FOUND,
+          message: error.message || 'Whiteboard or collaborator not found',
+          data: null,
+        };
+      }
+
+      if (error instanceof ForbiddenException) {
+        res.status(HttpStatus.FORBIDDEN);
+        return {
+          success: false,
+          statusCode: HttpStatus.FORBIDDEN,
+          message: error.message || 'You do not have permission to remove collaborators from this whiteboard',
+          data: null,
+        };
+      }
+
+      if (error instanceof BadRequestException) {
+        res.status(HttpStatus.BAD_REQUEST);
+        return {
+          success: false,
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: error.message || 'Invalid request',
+          data: null,
+        };
+      }
+
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR);
+      return {
+        success: false,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Failed to remove collaborator',
         error: error.message,
         data: null,
       };

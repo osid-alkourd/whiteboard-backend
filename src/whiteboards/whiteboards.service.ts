@@ -304,6 +304,63 @@ export class WhiteboardsService {
   }
 
   /**
+   * Remove a collaborator from a whiteboard (owner only)
+   * @param whiteboardId - Whiteboard ID
+   * @param userEmail - Email of the collaborator to remove
+   * @param owner - Current user (must be the owner)
+   * @throws NotFoundException if whiteboard not found or collaborator not found
+   * @throws ForbiddenException if user is not the owner
+   * @throws BadRequestException if user doesn't exist in the system
+   */
+  async removeCollaborator(
+    whiteboardId: string,
+    userEmail: string,
+    owner: User,
+  ): Promise<void> {
+    // Find whiteboard with owner relation
+    const whiteboard = await this.whiteboardRepository.findOne({
+      where: { id: whiteboardId },
+      relations: ['owner'],
+    });
+
+    if (!whiteboard) {
+      throw new NotFoundException('Whiteboard not found');
+    }
+
+    // Verify that the current user is the owner
+    if (whiteboard.owner.id !== owner.id) {
+      throw new ForbiddenException(
+        'Only the owner can remove collaborators from this whiteboard',
+      );
+    }
+
+    // Normalize email
+    const normalizedEmail = userEmail.toLowerCase().trim();
+
+    // Don't allow removing the owner
+    if (normalizedEmail === owner.email.toLowerCase()) {
+      throw new BadRequestException(
+        'You cannot remove yourself as a collaborator',
+      );
+    }
+
+    // Find the user by email to verify they exist in the system
+    const userToRemove = await this.usersService.findByEmail(normalizedEmail);
+
+    if (!userToRemove) {
+      throw new BadRequestException(
+        'User with this email does not exist in the system',
+      );
+    }
+
+    // Remove collaborator (this will throw NotFoundException if not a collaborator)
+    await this.collaboratorsService.removeCollaborator(
+      whiteboardId,
+      userToRemove.id,
+    );
+  }
+
+  /**
    * Duplicate a whiteboard (owner only)
    * Duplicates the whiteboard with title and description, all snapshots, and all collaborators
    * @param whiteboardId - Whiteboard ID to duplicate
