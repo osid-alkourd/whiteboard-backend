@@ -524,7 +524,9 @@ export class WhiteboardsController {
   }
 
   /**
-   * Get a specific whiteboard by ID with snapshots
+   * Open/View a specific whiteboard page
+   * Allows both owner and collaborators to access the whiteboard
+   * Returns all whiteboard data including shapes, snapshots, owner, and collaborators
    * Requires authentication and access permission
    * Access rules:
    * - Owner can always access
@@ -532,11 +534,11 @@ export class WhiteboardsController {
    * - Private whiteboards (no collaborators) can only be accessed by owner
    * @param id - Whiteboard ID
    * @param user - Current authenticated user (from JWT token)
-   * @returns Whiteboard with snapshots and shapes data
+   * @returns Whiteboard with all shapes, snapshots, owner, and collaborators data
    */
   @Get(':id')
   async getWhiteboardById(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: User,
   ) {
     try {
@@ -544,6 +546,19 @@ export class WhiteboardsController {
         id,
         user,
       );
+
+      // Extract all shapes from snapshots for easy access
+      const allShapes: any[] = [];
+      whiteboard.snapshots?.forEach((snapshot) => {
+        if (snapshot.data && typeof snapshot.data === 'object') {
+          // Extract shapes from snapshot data if they exist
+          if (Array.isArray(snapshot.data.shapes)) {
+            allShapes.push(...snapshot.data.shapes);
+          } else if (snapshot.data.shapes) {
+            allShapes.push(snapshot.data.shapes);
+          }
+        }
+      });
 
       return {
         success: true,
@@ -574,6 +589,7 @@ export class WhiteboardsController {
             createdAt: snapshot.createdAt,
             updatedAt: snapshot.updatedAt,
           })) || [],
+          shapes: allShapes.length > 0 ? allShapes : undefined, // All shapes from all snapshots
           createdAt: whiteboard.createdAt,
           updatedAt: whiteboard.updatedAt,
         },

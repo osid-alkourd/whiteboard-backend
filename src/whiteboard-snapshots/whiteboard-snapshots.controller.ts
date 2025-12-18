@@ -32,9 +32,19 @@ export class WhiteboardSnapshotsController {
   ) {}
 
   /**
-   * Save or update snapshot for a whiteboard
+   * Save or update snapshot for a whiteboard (owner and collaborators)
+   * Allows both owner and collaborators to add shapes and update snapshots
    * If whiteboard has no snapshots, create a new one
    * If whiteboard has snapshots, update the latest one
+   * 
+   * Access Control:
+   * - Owner can always save/update snapshots
+   * - Collaborators can save/update snapshots if they are shared on the whiteboard
+   * 
+   * To add shapes: Include them in the data.shapes array
+   * To update shapes: Modify shape properties in the data.shapes array
+   * To remove shapes: Exclude them from the data.shapes array
+   * 
    * Requires authentication and access permission (owner or collaborator)
    * @param whiteboardId - Whiteboard ID (must be a valid UUID)
    * @param saveSnapshotDto - Snapshot data containing shapes and drawings
@@ -51,15 +61,15 @@ export class WhiteboardSnapshotsController {
     @Res({ passthrough: true }) res: Response,
   ) {
     try {
-      // Check if whiteboard exists and user has access
+      // Check if whiteboard exists and user has access (owner or collaborator)
       // This will throw NotFoundException if whiteboard doesn't exist
-      // or ForbiddenException if user doesn't have access
+      // or ForbiddenException if user doesn't have access (not owner and not collaborator)
       const whiteboard = await this.whiteboardsService.findByIdWithAccess(
         whiteboardId,
         user,
       );
 
-      // Save or update snapshot
+      // Save or update snapshot (both owner and collaborators can do this)
       const snapshot = await this.snapshotsService.saveOrUpdateSnapshotForWhiteboard(
         whiteboard,
         saveSnapshotDto.data,
