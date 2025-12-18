@@ -5,13 +5,20 @@ import {
   Body,
   Param,
   HttpStatus,
+  HttpCode,
   ValidationPipe,
+  ParseUUIDPipe,
   UseGuards,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
+  ConflictException,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { WhiteboardsService } from './whiteboards.service';
 import { CreateWhiteboardDto } from './dto/create-whiteboard.dto';
+import { AddCollaboratorDto } from './dto/add-collaborator.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { User } from '../users/entities/user.entity';
@@ -93,6 +100,98 @@ export class WhiteboardsController {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: 'Failed to retrieve whiteboards',
         data: [],
+      };
+    }
+  }
+
+  /**
+   * Add a collaborator to a whiteboard (owner only)
+   * Requires authentication and ownership
+   * @param id - Whiteboard ID
+   * @param addCollaboratorDto - Email of the user to add as collaborator
+   * @param user - Current authenticated user (must be the owner)
+   * @param res - Express response object for setting status codes
+   * @returns Added collaborator information
+   */
+  @Post(':id/collaborators')
+  @HttpCode(HttpStatus.CREATED)
+  async addCollaborator(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(ValidationPipe) addCollaboratorDto: AddCollaboratorDto,
+    @CurrentUser() user: User,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    try {
+      const collaborator = await this.whiteboardsService.addCollaborator(
+        id,
+        addCollaboratorDto.email,
+        user,
+      );
+
+      return {
+        success: true,
+        statusCode: HttpStatus.CREATED,
+        message: 'Collaborator added successfully',
+        data: {
+          userId: collaborator.userId,
+          user: {
+            id: collaborator.user.id,
+            email: collaborator.user.email,
+            fullName: collaborator.user.fullName,
+          },
+          role: collaborator.role,
+          createdAt: collaborator.createdAt,
+        },
+      };
+    } catch (error) {
+      // Handle different error types
+      if (error instanceof NotFoundException) {
+        res.status(HttpStatus.NOT_FOUND);
+        return {
+          success: false,
+          statusCode: HttpStatus.NOT_FOUND,
+          message: error.message || 'Whiteboard not found',
+          data: null,
+        };
+      }
+
+      if (error instanceof ForbiddenException) {
+        res.status(HttpStatus.FORBIDDEN);
+        return {
+          success: false,
+          statusCode: HttpStatus.FORBIDDEN,
+          message: error.message || 'You do not have permission to add collaborators to this whiteboard',
+          data: null,
+        };
+      }
+
+      if (error instanceof BadRequestException) {
+        res.status(HttpStatus.BAD_REQUEST);
+        return {
+          success: false,
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: error.message || 'Invalid request',
+          data: null,
+        };
+      }
+
+      if (error instanceof ConflictException) {
+        res.status(HttpStatus.CONFLICT);
+        return {
+          success: false,
+          statusCode: HttpStatus.CONFLICT,
+          message: error.message || 'This user is already a collaborator on this whiteboard',
+          data: null,
+        };
+      }
+
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR);
+      return {
+        success: false,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Failed to add collaborator',
+        error: error.message,
+        data: null,
       };
     }
   }

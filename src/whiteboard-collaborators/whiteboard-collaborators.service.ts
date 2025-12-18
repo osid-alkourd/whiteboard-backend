@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WhiteboardCollaborator } from './entities/whiteboard-collaborator.entity';
@@ -83,6 +83,45 @@ export class WhiteboardCollaboratorsService {
       },
       relations: ['user'],
     });
+  }
+
+  /**
+   * Add a single collaborator to a whiteboard
+   * @param whiteboard - Whiteboard entity
+   * @param user - User to add as collaborator
+   * @param role - Role for the collaborator (default: 'editor')
+   * @returns Created collaborator entity
+   * @throws ConflictException if user is already a collaborator
+   */
+  async addCollaborator(
+    whiteboard: Whiteboard,
+    user: User,
+    role: CollaboratorRole = 'editor',
+  ): Promise<WhiteboardCollaborator> {
+    // Check if collaboration already exists
+    const existing = await this.collaboratorRepository.findOne({
+      where: {
+        whiteboardId: whiteboard.id,
+        userId: user.id,
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException(
+        'This user is already a collaborator on this whiteboard',
+      );
+    }
+
+    // Create and save collaborator
+    const collaborator = this.collaboratorRepository.create({
+      whiteboardId: whiteboard.id,
+      userId: user.id,
+      whiteboard,
+      user,
+      role,
+    });
+
+    return await this.collaboratorRepository.save(collaborator);
   }
 }
 

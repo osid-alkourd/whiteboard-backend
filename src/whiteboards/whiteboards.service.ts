@@ -10,6 +10,7 @@ import { Whiteboard } from './entities/whiteboard.entity';
 import { User } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import { WhiteboardCollaboratorsService } from '../whiteboard-collaborators/whiteboard-collaborators.service';
+import { WhiteboardCollaborator } from '../whiteboard-collaborators/entities/whiteboard-collaborator.entity';
 import { CreateWhiteboardDto, BoardAccessType } from './dto/create-whiteboard.dto';
 
 @Injectable()
@@ -193,6 +194,78 @@ export class WhiteboardsService {
     }
 
     return whiteboard;
+  }
+
+  /**
+   * Add a collaborator to a whiteboard (owner only)
+   * @param whiteboardId - Whiteboard ID
+   * @param userEmail - Email of the user to add as collaborator
+   * @param owner - Current user (must be the owner)
+   * @returns Created collaborator entity with user relation
+   * @throws NotFoundException if whiteboard not found
+   * @throws ForbiddenException if user is not the owner
+   * @throws BadRequestException if user doesn't exist in the system
+   * @throws ConflictException if user is already a collaborator
+   */
+  async addCollaborator(
+    whiteboardId: string,
+    userEmail: string,
+    owner: User,
+  ): Promise<WhiteboardCollaborator> {
+    // Find whiteboard with owner relation
+    const whiteboard = await this.whiteboardRepository.findOne({
+      where: { id: whiteboardId },
+      relations: ['owner'],
+    });
+
+    if (!whiteboard) {
+      throw new NotFoundException('Whiteboard not found');
+    }
+
+    // Verify that the current user is the owner
+    if (whiteboard.owner.id !== owner.id) {
+      throw new ForbiddenException(
+        'Only the owner can add collaborators to this whiteboard',
+      );
+    }
+
+    // Normalize email
+    const normalizedEmail = userEmail.toLowerCase().trim();
+
+    // Don't allow adding the owner as a collaborator
+    if (normalizedEmail === owner.email.toLowerCase()) {
+      throw new BadRequestException(
+        'You cannot add yourself as a collaborator',
+      );
+    }
+
+    // Find the user by email
+    const userToAdd = await this.usersService.findByEmail(normalizedEmail);
+
+    if (!userToAdd) {
+      throw new BadRequestException(
+        'User with this email does not exist in the system',
+      );
+    }
+
+    // Add collaborator (this will throw ConflictException if already exists)
+    const collaborator = await this.collaboratorsService.addCollaborator(
+      whiteboard,
+      userToAdd,
+      'editor',
+    );
+
+    // Load collaborator with user relation
+    const collaboratorWithUser = await this.collaboratorsService.findCollaboratorByUserAndWhiteboard(
+      whiteboardId,
+      userToAdd.id,
+    );
+
+    if (!collaboratorWithUser) {
+      throw new BadRequestException('Failed to load created collaborator');
+    }
+
+    return collaboratorWithUser;
   }
 }
 
