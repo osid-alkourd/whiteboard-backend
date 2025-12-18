@@ -7,7 +7,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In, Not } from 'typeorm';
 import { Whiteboard } from './entities/whiteboard.entity';
 import { User } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
@@ -129,6 +129,37 @@ export class WhiteboardsService {
       relations: ['owner', 'collaborators', 'collaborators.user'],
       order: { createdAt: 'DESC' }, // Most recent first
     });
+  }
+
+  /**
+   * Find all whiteboards where a user is a collaborator (not owner)
+   * Returns only whiteboards that were shared with the user
+   * @param userId - User ID
+   * @returns Array of whiteboard entities where user is a collaborator
+   */
+  async findByCollaborator(userId: string): Promise<Whiteboard[]> {
+    // Get all collaborations for this user
+    const collaborations = await this.collaboratorsService.findByUserId(userId);
+
+    if (collaborations.length === 0) {
+      return [];
+    }
+
+    // Extract whiteboard IDs
+    const whiteboardIds = collaborations.map((collab) => collab.whiteboardId);
+
+    // Find whiteboards where user is a collaborator but not the owner
+    const whiteboards = await this.whiteboardRepository.find({
+      where: {
+        id: In(whiteboardIds),
+        owner: { id: Not(userId) },
+      },
+      relations: ['owner', 'collaborators', 'collaborators.user'],
+      order: { createdAt: 'DESC' }, // Most recent first
+    });
+
+    // Additional safety check: filter out any whiteboards where user is the owner
+    return whiteboards.filter((whiteboard) => whiteboard.owner.id !== userId);
   }
 
   /**

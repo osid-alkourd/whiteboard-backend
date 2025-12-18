@@ -107,6 +107,44 @@ export class WhiteboardsController {
   }
 
   /**
+   * Get all whiteboards shared with the current user (where user is a collaborator)
+   * Returns only whiteboards that were shared with the user, excluding owned whiteboards
+   * Requires authentication
+   * @param user - Current authenticated user (from JWT token)
+   * @returns List of whiteboards shared with the user
+   */
+  @Get('shared-with-me')
+  async getSharedWhiteboards(@CurrentUser() user: User) {
+    try {
+      const whiteboards = await this.whiteboardsService.findByCollaborator(
+        user.id,
+      );
+
+      return {
+        success: true,
+        statusCode: HttpStatus.OK,
+        message: 'Shared whiteboards retrieved successfully',
+        data: whiteboards.map((whiteboard) => ({
+          id: whiteboard.id,
+          title: whiteboard.title,
+          description: whiteboard.description,
+          createdAt: whiteboard.createdAt,
+          updatedAt: whiteboard.updatedAt,
+          ownerName: whiteboard.owner.fullName,
+        })),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Failed to retrieve shared whiteboards',
+        error: error.message,
+        data: [],
+      };
+    }
+  }
+
+  /**
    * Add a collaborator to a whiteboard (owner only)
    * Requires authentication and ownership
    * @param id - Whiteboard ID

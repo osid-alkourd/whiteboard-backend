@@ -149,5 +149,18 @@ export class WhiteboardCollaboratorsService {
 
     await this.collaboratorRepository.remove(collaborator);
   }
+
+  /**
+   * Find all whiteboards where a user is a collaborator
+   * @param userId - User ID
+   * @returns Array of collaborator entities with whiteboard relations
+   */
+  async findByUserId(userId: string): Promise<WhiteboardCollaborator[]> {
+    return await this.collaboratorRepository.find({
+      where: { userId },
+      relations: ['whiteboard', 'whiteboard.owner', 'user'],
+      order: { createdAt: 'DESC' }, // Most recent first
+    });
+  }
 }
 
