@@ -310,6 +310,74 @@ export class WhiteboardsController {
   }
 
   /**
+   * Leave a whiteboard (remove current user as collaborator)
+   * User must be a collaborator (not owner) to leave
+   * Requires authentication
+   * @param id - Whiteboard ID
+   * @param user - Current authenticated user (must be a collaborator, not owner)
+   * @param res - Express response object for setting status codes
+   * @returns Success message
+   */
+  @Delete(':id/leave')
+  @HttpCode(HttpStatus.OK)
+  async leaveWhiteboard(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    try {
+      await this.whiteboardsService.leaveWhiteboard(id, user);
+
+      return {
+        success: true,
+        statusCode: HttpStatus.OK,
+        message: 'You have successfully left the whiteboard',
+        data: null,
+      };
+    } catch (error) {
+      // Handle different error types
+      if (error instanceof NotFoundException) {
+        res.status(HttpStatus.NOT_FOUND);
+        return {
+          success: false,
+          statusCode: HttpStatus.NOT_FOUND,
+          message: error.message || 'Whiteboard not found',
+          data: null,
+        };
+      }
+
+      if (error instanceof ForbiddenException) {
+        res.status(HttpStatus.FORBIDDEN);
+        return {
+          success: false,
+          statusCode: HttpStatus.FORBIDDEN,
+          message: error.message || 'You cannot leave this whiteboard',
+          data: null,
+        };
+      }
+
+      if (error instanceof BadRequestException) {
+        res.status(HttpStatus.BAD_REQUEST);
+        return {
+          success: false,
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: error.message || 'Invalid request',
+          data: null,
+        };
+      }
+
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR);
+      return {
+        success: false,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Failed to leave whiteboard',
+        error: error.message,
+        data: null,
+      };
+    }
+  }
+
+  /**
    * Duplicate a whiteboard (owner only)
    * Duplicates the whiteboard with title, description, all snapshots, and all collaborators
    * Requires authentication and ownership

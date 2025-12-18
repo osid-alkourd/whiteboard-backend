@@ -163,6 +163,49 @@ export class WhiteboardsService {
   }
 
   /**
+   * Leave a whiteboard (remove user as collaborator)
+   * User must be a collaborator (not owner) to leave
+   * @param whiteboardId - Whiteboard ID
+   * @param user - Current user (must be a collaborator, not owner)
+   * @throws NotFoundException if whiteboard not found
+   * @throws ForbiddenException if user is the owner
+   * @throws BadRequestException if user is not a collaborator
+   */
+  async leaveWhiteboard(whiteboardId: string, user: User): Promise<void> {
+    // Find whiteboard with owner relation
+    const whiteboard = await this.whiteboardRepository.findOne({
+      where: { id: whiteboardId },
+      relations: ['owner'],
+    });
+
+    if (!whiteboard) {
+      throw new NotFoundException('Whiteboard not found');
+    }
+
+    // Verify that the user is NOT the owner
+    if (whiteboard.owner.id === user.id) {
+      throw new ForbiddenException(
+        'Owner cannot leave their own whiteboard. Please delete the whiteboard instead.',
+      );
+    }
+
+    // Check if user is a collaborator
+    const collaborator = await this.collaboratorsService.findCollaboratorByUserAndWhiteboard(
+      whiteboardId,
+      user.id,
+    );
+
+    if (!collaborator) {
+      throw new BadRequestException(
+        'You are not a collaborator on this whiteboard',
+      );
+    }
+
+    // Remove the user as a collaborator
+    await this.collaboratorsService.removeCollaborator(whiteboardId, user.id);
+  }
+
+  /**
    * Check if user has access to a whiteboard
    * Access rules:
    * - Owner can always access
