@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WhiteboardSnapshotsService } from './whiteboard-snapshots.service';
 import { WhiteboardSnapshotsController } from './whiteboard-snapshots.controller';
@@ -8,7 +8,7 @@ import { WhiteboardsModule } from '../whiteboards/whiteboards.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([WhiteboardSnapshot]),
-    WhiteboardsModule,
+    forwardRef(() => WhiteboardsModule),
   ],
   controllers: [WhiteboardSnapshotsController],
   providers: [WhiteboardSnapshotsService],

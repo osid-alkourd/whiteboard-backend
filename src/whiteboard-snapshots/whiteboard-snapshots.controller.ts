@@ -11,6 +11,8 @@ import {
   NotFoundException,
   ForbiddenException,
   Res,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { WhiteboardSnapshotsService } from './whiteboard-snapshots.service';
@@ -25,6 +27,7 @@ import { User } from '../users/entities/user.entity';
 export class WhiteboardSnapshotsController {
   constructor(
     private readonly snapshotsService: WhiteboardSnapshotsService,
+    @Inject(forwardRef(() => WhiteboardsService))
     private readonly whiteboardsService: WhiteboardsService,
   ) {}
 

@@ -3,6 +3,8 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,6 +13,7 @@ import { User } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import { WhiteboardCollaboratorsService } from '../whiteboard-collaborators/whiteboard-collaborators.service';
 import { WhiteboardCollaborator } from '../whiteboard-collaborators/entities/whiteboard-collaborator.entity';
+import { WhiteboardSnapshotsService } from '../whiteboard-snapshots/whiteboard-snapshots.service';
 import { CreateWhiteboardDto, BoardAccessType } from './dto/create-whiteboard.dto';
 
 @Injectable()
@@ -20,6 +23,8 @@ export class WhiteboardsService {
     private readonly whiteboardRepository: Repository<Whiteboard>,
     private readonly usersService: UsersService,
     private readonly collaboratorsService: WhiteboardCollaboratorsService,
+    @Inject(forwardRef(() => WhiteboardSnapshotsService))
+    private readonly snapshotsService: WhiteboardSnapshotsService,
   ) {}
 
   /**
@@ -296,6 +301,89 @@ export class WhiteboardsService {
 
     // Delete whiteboard (CASCADE will automatically delete snapshots and collaborators)
     await this.whiteboardRepository.remove(whiteboard);
+  }
+
+  /**
+   * Duplicate a whiteboard (owner only)
+   * Duplicates the whiteboard with title and description, all snapshots, and all collaborators
+   * @param whiteboardId - Whiteboard ID to duplicate
+   * @param owner - Current user (must be the owner)
+   * @returns Duplicated whiteboard entity with all relations
+   * @throws NotFoundException if whiteboard not found
+   * @throws ForbiddenException if user is not the owner
+   */
+  async duplicate(whiteboardId: string, owner: User): Promise<Whiteboard> {
+    // Find whiteboard with all relations
+    const originalWhiteboard = await this.whiteboardRepository.findOne({
+      where: { id: whiteboardId },
+      relations: [
+        'owner',
+        'collaborators',
+        'collaborators.user',
+        'snapshots',
+      ],
+    });
+
+    if (!originalWhiteboard) {
+      throw new NotFoundException('Whiteboard not found');
+    }
+
+    // Verify that the current user is the owner
+    if (originalWhiteboard.owner.id !== owner.id) {
+      throw new ForbiddenException(
+        'Only the owner can duplicate this whiteboard',
+      );
+    }
+
+    // Create new whiteboard with duplicated title and description
+    const duplicatedWhiteboard = this.whiteboardRepository.create({
+      title: originalWhiteboard.title,
+      description: originalWhiteboard.description,
+      owner,
+      isPublic: originalWhiteboard.isPublic,
+    });
+
+    const savedWhiteboard = await this.whiteboardRepository.save(duplicatedWhiteboard);
+
+    // Duplicate all snapshots
+    if (originalWhiteboard.snapshots && originalWhiteboard.snapshots.length > 0) {
+      for (const snapshot of originalWhiteboard.snapshots) {
+        await this.snapshotsService.createSnapshot(
+          savedWhiteboard,
+          snapshot.data,
+        );
+      }
+    }
+
+    // Duplicate all collaborators
+    if (originalWhiteboard.collaborators && originalWhiteboard.collaborators.length > 0) {
+      const collaboratorsToAdd = originalWhiteboard.collaborators.map(
+        (collab) => collab.user,
+      );
+      
+      await this.collaboratorsService.addCollaborators(
+        savedWhiteboard,
+        collaboratorsToAdd,
+        'editor',
+      );
+    }
+
+    // Load duplicated whiteboard with all relations
+    const duplicatedWhiteboardWithRelations = await this.whiteboardRepository.findOne({
+      where: { id: savedWhiteboard.id },
+      relations: [
+        'owner',
+        'collaborators',
+        'collaborators.user',
+        'snapshots',
+      ],
+    });
+
+    if (!duplicatedWhiteboardWithRelations) {
+      throw new BadRequestException('Failed to load duplicated whiteboard');
+    }
+
+    return duplicatedWhiteboardWithRelations;
   }
 }
 

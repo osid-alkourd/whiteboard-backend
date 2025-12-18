@@ -198,6 +198,94 @@ export class WhiteboardsController {
   }
 
   /**
+   * Duplicate a whiteboard (owner only)
+   * Duplicates the whiteboard with title, description, all snapshots, and all collaborators
+   * Requires authentication and ownership
+   * @param id - Whiteboard ID to duplicate
+   * @param user - Current authenticated user (must be the owner)
+   * @param res - Express response object for setting status codes
+   * @returns Duplicated whiteboard information
+   */
+  @Post(':id/duplicate')
+  @HttpCode(HttpStatus.CREATED)
+  async duplicateWhiteboard(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    try {
+      const duplicatedWhiteboard = await this.whiteboardsService.duplicate(
+        id,
+        user,
+      );
+
+      return {
+        success: true,
+        statusCode: HttpStatus.CREATED,
+        message: 'Whiteboard duplicated successfully',
+        data: {
+          id: duplicatedWhiteboard.id,
+          title: duplicatedWhiteboard.title,
+          description: duplicatedWhiteboard.description,
+          isPublic: duplicatedWhiteboard.isPublic,
+          owner: {
+            id: duplicatedWhiteboard.owner.id,
+            email: duplicatedWhiteboard.owner.email,
+            fullName: duplicatedWhiteboard.owner.fullName,
+          },
+          collaborators: duplicatedWhiteboard.collaborators?.map((collab) => ({
+            userId: collab.userId,
+            user: {
+              id: collab.user.id,
+              email: collab.user.email,
+              fullName: collab.user.fullName,
+            },
+            role: collab.role,
+          })) || [],
+          snapshots: duplicatedWhiteboard.snapshots?.map((snapshot) => ({
+            id: snapshot.id,
+            data: snapshot.data,
+            createdAt: snapshot.createdAt,
+            updatedAt: snapshot.updatedAt,
+          })) || [],
+          createdAt: duplicatedWhiteboard.createdAt,
+          updatedAt: duplicatedWhiteboard.updatedAt,
+        },
+      };
+    } catch (error) {
+      // Handle different error types
+      if (error instanceof NotFoundException) {
+        res.status(HttpStatus.NOT_FOUND);
+        return {
+          success: false,
+          statusCode: HttpStatus.NOT_FOUND,
+          message: error.message || 'Whiteboard not found',
+          data: null,
+        };
+      }
+
+      if (error instanceof ForbiddenException) {
+        res.status(HttpStatus.FORBIDDEN);
+        return {
+          success: false,
+          statusCode: HttpStatus.FORBIDDEN,
+          message: error.message || 'You do not have permission to duplicate this whiteboard',
+          data: null,
+        };
+      }
+
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR);
+      return {
+        success: false,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Failed to duplicate whiteboard',
+        error: error.message,
+        data: null,
+      };
+    }
+  }
+
+  /**
    * Delete a whiteboard (owner only)
    * This will automatically delete all snapshots and collaborators due to CASCADE constraints
    * Requires authentication and ownership
