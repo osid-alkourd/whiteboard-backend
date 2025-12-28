@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Delete,
+  Patch,
   Body,
   Param,
   HttpStatus,
@@ -21,6 +22,7 @@ import { WhiteboardsService } from './whiteboards.service';
 import { CreateWhiteboardDto } from './dto/create-whiteboard.dto';
 import { AddCollaboratorDto } from './dto/add-collaborator.dto';
 import { RemoveCollaboratorDto } from './dto/remove-collaborator.dto';
+import { RenameWhiteboardDto } from './dto/rename-whiteboard.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { User } from '../users/entities/user.entity';
@@ -618,6 +620,84 @@ export class WhiteboardsController {
         success: false,
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: 'Failed to retrieve whiteboard',
+        error: error.message,
+        data: null,
+      };
+    }
+  }
+
+  /**
+   * Rename a whiteboard (owner only)
+   * Requires authentication
+   * @param id - Whiteboard ID
+   * @param renameWhiteboardDto - New title for the whiteboard
+   * @param user - Current authenticated user (must be the owner)
+   * @returns Updated whiteboard information
+   */
+  @Patch(':id/rename')
+  @HttpCode(HttpStatus.OK)
+  async rename(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(ValidationPipe) renameWhiteboardDto: RenameWhiteboardDto,
+    @CurrentUser() user: User,
+  ) {
+    try {
+      const whiteboard = await this.whiteboardsService.rename(
+        id,
+        renameWhiteboardDto.title,
+        user,
+      );
+
+      return {
+        success: true,
+        statusCode: HttpStatus.OK,
+        message: 'Whiteboard renamed successfully',
+        data: {
+          id: whiteboard.id,
+          title: whiteboard.title,
+          description: whiteboard.description,
+          isPublic: whiteboard.isPublic,
+          owner: {
+            id: whiteboard.owner.id,
+            email: whiteboard.owner.email,
+            fullName: whiteboard.owner.fullName,
+          },
+          collaborators: whiteboard.collaborators?.map((collab) => ({
+            userId: collab.userId,
+            user: {
+              id: collab.user.id,
+              email: collab.user.email,
+              fullName: collab.user.fullName,
+            },
+            role: collab.role,
+          })) || [],
+          createdAt: whiteboard.createdAt,
+          updatedAt: whiteboard.updatedAt,
+        },
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        return {
+          success: false,
+          statusCode: HttpStatus.NOT_FOUND,
+          message: error.message || 'Whiteboard not found',
+          data: null,
+        };
+      }
+
+      if (error instanceof ForbiddenException) {
+        return {
+          success: false,
+          statusCode: HttpStatus.FORBIDDEN,
+          message: error.message || 'Only the owner can rename this whiteboard',
+          data: null,
+        };
+      }
+
+      return {
+        success: false,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Failed to rename whiteboard',
         error: error.message,
         data: null,
       };

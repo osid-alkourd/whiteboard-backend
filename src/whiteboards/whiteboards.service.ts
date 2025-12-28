@@ -516,5 +516,53 @@ export class WhiteboardsService {
 
     return duplicatedWhiteboardWithRelations;
   }
+
+  /**
+   * Rename a whiteboard (owner only)
+   * @param whiteboardId - Whiteboard ID
+   * @param newTitle - New title for the whiteboard
+   * @param owner - Current user (must be the owner)
+   * @returns Updated whiteboard entity
+   * @throws NotFoundException if whiteboard not found
+   * @throws ForbiddenException if user is not the owner
+   */
+  async rename(
+    whiteboardId: string,
+    newTitle: string,
+    owner: User,
+  ): Promise<Whiteboard> {
+    // Find whiteboard with owner relation
+    const whiteboard = await this.whiteboardRepository.findOne({
+      where: { id: whiteboardId },
+      relations: ['owner'],
+    });
+
+    if (!whiteboard) {
+      throw new NotFoundException('Whiteboard not found');
+    }
+
+    // Verify that the current user is the owner
+    if (whiteboard.owner.id !== owner.id) {
+      throw new ForbiddenException(
+        'Only the owner can rename this whiteboard',
+      );
+    }
+
+    // Update the title
+    whiteboard.title = newTitle.trim();
+    const updatedWhiteboard = await this.whiteboardRepository.save(whiteboard);
+
+    // Load whiteboard with relations for response
+    const whiteboardWithRelations = await this.whiteboardRepository.findOne({
+      where: { id: updatedWhiteboard.id },
+      relations: ['owner', 'collaborators', 'collaborators.user'],
+    });
+
+    if (!whiteboardWithRelations) {
+      throw new BadRequestException('Failed to load updated whiteboard');
+    }
+
+    return whiteboardWithRelations;
+  }
 }
 
